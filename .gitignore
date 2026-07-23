@@ -1,0 +1,18 @@
+# data + model artifacts
+data/
+*.faiss
+*.pt
+
+# secrets
+.env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# os / editor cruft
+.DS_Store
+
+# local build guide — reference only, not for the public repo
+BUILD_TWO_TOWER.md
