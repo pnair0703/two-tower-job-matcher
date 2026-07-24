@@ -1,5 +1,5 @@
 # Transformer blocks adapted from my from-scratch implementation:
-# github.com/pnair0703/<transformer-repo>        # TODO: fill real repo URL
+# github.com/pnair0703/nair-gpt
 # Architecture reused; weights are NOT — trained fresh on job/resume text.
 """attention.py — bidirectional transformer encoder blocks.
 
