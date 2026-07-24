@@ -18,7 +18,7 @@ Held-out test set. Filled in Phase 5.
 
 ## Status
 
-- [ ] Foundation — repo scaffold + bidirectional attention blocks
+- [x] Foundation — repo scaffold + bidirectional attention blocks
 - [ ] Phase 0 — data collection (ATS APIs → JSONL)
 - [ ] Phase 1 — labels (LLM scoring + human validation)
 - [ ] Phase 2 — Tower A (from-scratch encoder)
