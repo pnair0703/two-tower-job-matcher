@@ -16,3 +16,6 @@ __pycache__/
 
 # local build guide — reference only, not for the public repo
 BUILD_TWO_TOWER.md
+
+# lint cache
+.ruff_cache/
