@@ -1,5 +1,5 @@
-# data + model artifacts
-data/
+# data + model artifacts (repo-root only — not src/data, which is source code)
+/data/
 *.faiss
 *.pt
 
