@@ -4,7 +4,7 @@ numpy          # torch companion; used throughout later phases
 ruff           # linting: line-length 120, select E/F/W
 
 # ── Phase 0: data collection ─────────────────────────────────
-# requests            # ATS API calls (Greenhouse / Lever / Ashby / RemoteOK)
+requests       # ATS API calls (Greenhouse / Lever / Ashby / RemoteOK)
 # python-dotenv       # load .env
 
 # ── Phase 1: labeling ────────────────────────────────────────
