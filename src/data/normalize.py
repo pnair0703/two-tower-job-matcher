@@ -48,9 +48,20 @@ def html_to_text(raw: str) -> str:
     return text.strip()
 
 
+def _repair_mojibake(text: str) -> str:
+    """Undo UTF-8-decoded-as-Latin-1 double-encoding (seen in ~half of RemoteOK's
+    descriptions, upstream of us). Round-tripping already-clean text through
+    latin-1->utf-8 either fails (any char above codepoint 255 - left untouched)
+    or returns the identical string, so this is a safe no-op elsewhere."""
+    try:
+        return text.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+
+
 def _record(id_, company, title, location, description, url, source):
     """Build one schema record; returns None if title or description is empty."""
-    title, description = title.strip(), description.strip()
+    title, description = title.strip(), _repair_mojibake(description).strip()
     if not (title and description):
         return None
     return {"id": id_, "company": company, "title": title, "location": (location or "").strip(),
