@@ -19,7 +19,7 @@ Held-out test set. Filled in Phase 5.
 ## Status
 
 - [x] Foundation — repo scaffold + bidirectional attention blocks
-- [ ] Phase 0 — data collection (ATS APIs → JSONL)
+- [x] Phase 0 — data collection (ATS APIs → JSONL) — 13,073 postings from 81 companies + RemoteOK
 - [ ] Phase 1 — labels (LLM scoring + human validation)
 - [ ] Phase 2 — Tower A (from-scratch encoder)
 - [ ] Phase 3 — Tower B (pretrained encoder)
