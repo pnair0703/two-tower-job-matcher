@@ -1,0 +1,18 @@
+FROM pytorch/pytorch:2.1.1-cuda12.1-runtime-ubuntu22.04
+
+RUN apt-get update && apt-get install -y git curl
+
+WORKDIR /opt/ml
+
+# Copy requirements
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy source code
+COPY src/ code/src/
+COPY .env.example code/.env.example
+
+# Set Python path
+ENV PYTHONPATH=/opt/ml/code:$PYTHONPATH
+
+ENTRYPOINT ["python", "code/src/model/sagemaker_train.py"]
