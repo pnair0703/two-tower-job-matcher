@@ -1,21 +1,25 @@
-# data + model artifacts (repo-root only — not src/data, which is source code)
-/data/
-*.faiss
+# Data (large, not committed)
+data/
+*.jsonl
 *.pt
+*.faiss
+*.pkl
 
-# secrets
+# Environment
 .env
+.env.local
 
-# python
+# Python
 __pycache__/
 *.pyc
 .venv/
+*.egg-info/
 
-# os / editor cruft
-.DS_Store
+# IDE
+.vscode/
+.idea/
+*.swp
 
-# local build guide — reference only, not for the public repo
-BUILD_TWO_TOWER.md
-
-# lint cache
-.ruff_cache/
+# Logs
+logs/
+*.log

@@ -1,24 +1,21 @@
-# ── Foundation (installed now) ───────────────────────────────
-torch          # transformer blocks + all model code
-numpy          # torch companion; used throughout later phases
-ruff           # linting: line-length 120, select E/F/W
+# APIs
+anthropic>=0.25.0
 
-# ── Phase 0: data collection ─────────────────────────────────
-requests       # ATS API calls (Greenhouse / Lever / Ashby / RemoteOK)
-# python-dotenv       # load .env
+# AWS
+boto3>=1.28.0
+sagemaker>=2.180.0
 
-# ── Phase 1: labeling ────────────────────────────────────────
-# anthropic           # LLM scoring for label generation
+# ML/Embeddings
+torch>=2.0.0
+sentence-transformers>=2.2.2
+scikit-learn>=1.3.0
+faiss-cpu>=1.7.4
 
-# ── Phase 2/3: encoders ──────────────────────────────────────
-# sentence-transformers   # Tower B pretrained encoder
-# transformers            # dependency of sentence-transformers
+# Data
+pandas>=2.0.0
+numpy>=1.24.0
 
-# ── Phase 4: retrieval + serving ─────────────────────────────
-# faiss-cpu           # vector index
-# fastapi             # serving
-# uvicorn             # ASGI server
-
-# ── Phase 5: evaluation ──────────────────────────────────────
-# rank-bm25           # BM25 baseline
-# scikit-learn        # TF-IDF alternative + metrics helpers
+# Utils
+python-dotenv>=1.0.0
+tenacity>=8.2.0
+tqdm>=4.66.0
