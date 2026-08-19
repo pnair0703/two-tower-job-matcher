@@ -6,7 +6,7 @@ the matches. The encoder is built two ways — a from-scratch transformer and a
 fine-tuned pretrained sentence encoder — and both are benchmarked against a keyword
 baseline. **The comparison is the deliverable.**
 
-## Results
+## Results (Phase 5)
 
 Held-out test set. Filled in Phase 5.
 
