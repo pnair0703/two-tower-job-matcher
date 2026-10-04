@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,6 +16,24 @@ logging.basicConfig(level=logging.INFO)
 
 VOCAB_SIZE = 5000
 EMBEDDING_DIM = 384
+
+HYPERPARAMETERS_PATH = Path("/opt/ml/input/config/hyperparameters.json")
+
+
+def _inject_sagemaker_hyperparameters():
+    """submit_training_job.py calls the raw boto3 create_training_job API, which
+    only delivers HyperParameters to the container via this JSON file — not as
+    CLI args (that conversion is done by the SageMaker estimator/toolkit, which
+    this Dockerfile's plain ENTRYPOINT doesn't use). Translate it into argv
+    ourselves. No-op outside a real SageMaker container (--local, tests, etc.)."""
+    if not HYPERPARAMETERS_PATH.exists():
+        return
+    with open(HYPERPARAMETERS_PATH) as f:
+        hyperparameters = json.load(f)
+    flag_map = {"tower": "--tower", "epochs": "--epochs", "batch_size": "--batch-size", "lr": "--lr"}
+    for key, flag in flag_map.items():
+        if key in hyperparameters and flag not in sys.argv:
+            sys.argv += [flag, str(hyperparameters[key])]
 
 
 def train_epoch(model, train_loader, optimizer, criterion, device, tower_type="a"):
@@ -79,6 +98,7 @@ def validate(model, val_loader, criterion, device, tower_type="a"):
 
 
 def main():
+    _inject_sagemaker_hyperparameters()
     parser = argparse.ArgumentParser()
     parser.add_argument("--tower", default="a", choices=["a", "b"])
     parser.add_argument("--epochs", type=int, default=20)
@@ -93,13 +113,12 @@ def main():
 
     # Load data from S3 (or locally if --local)
     if args.local:
-        input_dir = Path("data")
+        labels_path = Path("data") / "labels.jsonl"
+        postings_path = Path("data") / "postings.jsonl"
     else:
-        # SageMaker mounts input at /opt/ml/input/data/training
-        input_dir = Path("/opt/ml/input/data/training")
-
-    labels_path = input_dir / "labels.jsonl"
-    postings_path = input_dir / "postings.jsonl"
+        # SageMaker mounts each InputDataConfig channel at /opt/ml/input/data/<channel>
+        labels_path = Path("/opt/ml/input/data/training/labels.jsonl")
+        postings_path = Path("/opt/ml/input/data/postings/postings.jsonl")
 
     logger.info(f"Loading labels from {labels_path}")
     labels = read_jsonl_local(labels_path)

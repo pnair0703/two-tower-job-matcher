@@ -13,32 +13,30 @@ s3_client = boto3.client("s3")
 
 def submit_training_job(tower, instance_type="ml.p3.2xlarge", epochs=20):
     """Submit a SageMaker Training job."""
-    try:
-        from src.utils.config import load_config
-        config = load_config()
-    except Exception as e:
-        logger.warning(f"Could not load config: {e}")
-        config = {
-            "s3_bucket": "two-tower-pnair",
-            "aws_region": "us-east-1",
-        }
+    from src.utils.config import load_config
+    config = load_config()
 
     bucket = config.get("s3_bucket", "two-tower-pnair")
     region = config.get("aws_region", "us-east-1")
+    role_arn = config.get("sagemaker_role_arn")
+    image_uri = config.get("training_image_uri")
+
+    if not role_arn or not image_uri:
+        raise ValueError(
+            "SAGEMAKER_ROLE_ARN and TRAINING_IMAGE_URI must be set in .env — "
+            "create a SageMaker execution role and push docker/Dockerfile.train "
+            "to ECR first, then set these before submitting a job."
+        )
 
     job_name = f"two-tower-{tower}-{int(time.time())}"
 
     logger.info(f"Submitting SageMaker job: {job_name}")
 
-    # Note: This is a template. In practice, you need to:
-    # 1. Have the Docker image pushed to ECR
-    # 2. Have proper IAM role configured
-    # 3. Update the image URI below
     response = sagemaker_client.create_training_job(
         TrainingJobName=job_name,
-        RoleArn="arn:aws:iam::123456789012:role/SageMakerRole",  # TODO: get from config
+        RoleArn=role_arn,
         AlgorithmSpecification={
-            "TrainingImage": "123456789012.dkr.ecr.us-east-1.amazonaws.com/two-tower:train",
+            "TrainingImage": image_uri,
             "TrainingInputMode": "File",
         },
         InputDataConfig=[
@@ -51,7 +49,17 @@ def submit_training_job(tower, instance_type="ml.p3.2xlarge", epochs=20):
                         "S3DataDistributionType": "FullyReplicated",
                     }
                 },
-            }
+            },
+            {
+                "ChannelName": "postings",
+                "DataSource": {
+                    "S3DataSource": {
+                        "S3Uri": f"s3://{bucket}/postings/",
+                        "S3DataType": "S3Prefix",
+                        "S3DataDistributionType": "FullyReplicated",
+                    }
+                },
+            },
         ],
         OutputDataConfig={
             "S3OutputPath": f"s3://{bucket}/models/",

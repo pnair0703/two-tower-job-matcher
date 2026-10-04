@@ -10,6 +10,8 @@ def load_config():
         "claude_api_key": os.getenv("CLAUDE_API_KEY"),
         "aws_region": os.getenv("AWS_REGION", "us-east-1"),
         "s3_bucket": os.getenv("S3_BUCKET", "two-tower-pnair"),
+        "sagemaker_role_arn": os.getenv("SAGEMAKER_ROLE_ARN"),
+        "training_image_uri": os.getenv("TRAINING_IMAGE_URI"),
         "project_name": os.getenv("PROJECT_NAME", "two-tower"),
         "log_level": os.getenv("LOG_LEVEL", "INFO"),
     }
