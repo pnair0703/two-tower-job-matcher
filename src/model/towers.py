@@ -1,5 +1,6 @@
 """Phase 2 — JobTower + ResumeTower (own encoder), same interface as Tower B."""
 
+import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -104,3 +105,22 @@ class JobResumePair:
         else:
             tokens = tokens[:self.max_seq_len]
         return torch.tensor(tokens, dtype=torch.long)
+
+    def save_vocab(self, path):
+        """Save vocab to JSON so inference can rebuild the same tokenizer."""
+        with open(path, "w") as f:
+            json.dump({
+                "vocab_size": self.vocab_size,
+                "max_seq_len": self.max_seq_len,
+                "word_to_id": self.word_to_id,
+            }, f)
+
+    @classmethod
+    def load_vocab(cls, path):
+        """Load a tokenizer from a vocab JSON saved by save_vocab."""
+        with open(path, "r") as f:
+            data = json.load(f)
+        tokenizer = cls(vocab_size=data["vocab_size"], max_seq_len=data["max_seq_len"])
+        tokenizer.word_to_id = data["word_to_id"]
+        tokenizer.id_counter = len(tokenizer.word_to_id) + 1
+        return tokenizer

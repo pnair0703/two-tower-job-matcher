@@ -14,7 +14,8 @@ class JobResumePairDataset(Dataset):
             labels: List[Dict] with posting_id, score, split
             postings_by_id: Dict[posting_id] -> posting dict
             resume_text: str
-            tokenizer: function to convert text → token IDs
+            tokenizer: function to convert text → token IDs, or None to pass raw text
+                through (for towers like TowerB that do their own tokenization)
             split: "train", "val", or "test"
         """
         self.labels = [l for l in labels if l["split"] == split]
@@ -36,12 +37,20 @@ class JobResumePairDataset(Dataset):
         # Concatenate job description
         job_text = f"{posting['title']} {posting['company']} {posting['description']}"
 
-        # Tokenize
-        job_tokens = self.tokenizer(job_text)
-        resume_tokens = self.tokenizer(self.resume_text)
-
         # Label (0-3)
         score = label_dict["score"]
+
+        if self.tokenizer is None:
+            # Raw text path (e.g. TowerB, which tokenizes internally)
+            return {
+                "job_text": job_text,
+                "resume_text": self.resume_text,
+                "score": torch.tensor(score, dtype=torch.float),
+                "posting_id": posting_id,
+            }
+
+        job_tokens = self.tokenizer(job_text)
+        resume_tokens = self.tokenizer(self.resume_text)
 
         return {
             "job_tokens": job_tokens,

@@ -8,7 +8,7 @@ from src.data.s3_utils import read_jsonl_from_s3, write_jsonl, upload_to_s3
 from src.data.constants import LABEL_RUBRIC, SAMPLE_SIZE_TRAIN, SAMPLE_SIZE_VAL, SAMPLE_SIZE_TEST
 
 logger = setup_logging("label")
-client = Anthropic()
+client = Anthropic(api_key=load_config()["claude_api_key"])
 
 def stratified_sample(postings, sample_size=400):
     """Sample postings stratified by company size (proxy for role fit)."""
