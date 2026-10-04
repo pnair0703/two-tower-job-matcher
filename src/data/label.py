@@ -4,7 +4,7 @@ from pathlib import Path
 from anthropic import Anthropic
 from src.utils.config import load_config, get_s3_paths
 from src.utils.logging import setup_logging
-from src.data.s3_utils import read_jsonl_from_s3, write_jsonl, upload_to_s3
+from src.data.s3_utils import read_jsonl_from_s3, read_jsonl_local, write_jsonl, upload_to_s3
 from src.data.constants import LABEL_RUBRIC, SAMPLE_SIZE_TRAIN, SAMPLE_SIZE_VAL, SAMPLE_SIZE_TEST
 
 logger = setup_logging("label")
@@ -61,14 +61,15 @@ Description: {posting['description'][:2000]}
 
     raise ValueError(f"Could not score {posting['id']} after {max_retries} retries")
 
-def label_postings(postings_jsonl_s3_path, sample_size=400, output_local_path="labels_temp.jsonl"):
+def label_postings(postings_path, sample_size=400, output_local_path="labels_temp.jsonl", local=False):
     """Label postings via Claude API."""
-    config = load_config()
-    bucket = config["s3_bucket"]
-
-    # Download postings
-    logger.info(f"Downloading postings from S3")
-    postings = read_jsonl_from_s3(postings_jsonl_s3_path, bucket)
+    if local:
+        logger.info(f"Loading postings from local path {postings_path}")
+        postings = read_jsonl_local(postings_path)
+    else:
+        config = load_config()
+        logger.info(f"Downloading postings from S3")
+        postings = read_jsonl_from_s3(postings_path, config["s3_bucket"])
     logger.info(f"Loaded {len(postings)} postings")
 
     # Stratified sample
@@ -133,15 +134,17 @@ def compute_agreement(labels):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="postings/postings.jsonl")
+    parser.add_argument("--input", default="postings/postings.jsonl", help="S3 key, or local path with --local")
     parser.add_argument("--sample-size", type=int, default=400)
     parser.add_argument("--output-s3", default="labels/labels.jsonl")
+    parser.add_argument("--output-local", default="data/labels.jsonl", help="Where to write labels when --local")
+    parser.add_argument("--local", action="store_true")
     args = parser.parse_args()
 
-    config = load_config()
+    input_path = "data/postings.jsonl" if (args.local and args.input == "postings/postings.jsonl") else args.input
 
     # Label via Claude
-    labels, temp_path = label_postings(args.input, args.sample_size)
+    labels, temp_path = label_postings(input_path, args.sample_size, local=args.local)
 
     # TODO: Prompt for manual validation of test set, update labels
     # For now, save LLM scores as final
@@ -150,6 +153,10 @@ if __name__ == "__main__":
     agreement = compute_agreement(labels)
     logger.info(f"Agreement report: {agreement}")
 
-    # Upload to S3
-    upload_to_s3(temp_path, args.output_s3, config["s3_bucket"])
-    logger.info("✓ Labels uploaded to S3")
+    if args.local:
+        write_jsonl(labels, args.output_local)
+        logger.info(f"✓ Labels saved to {args.output_local}")
+    else:
+        config = load_config()
+        upload_to_s3(temp_path, args.output_s3, config["s3_bucket"])
+        logger.info("✓ Labels uploaded to S3")

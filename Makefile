@@ -23,13 +23,13 @@ train-b:
 	python scripts/submit_training_job.py --tower b --epochs 10
 
 embed:
-	python src/embed/batch_embed.py --tower a
-	python src/embed/batch_embed.py --tower b
-	python src/embed/build_faiss.py --tower a
-	python src/embed/build_faiss.py --tower b
+	python src/embed/batch_embed.py --tower a --model-path models/tower_a_model.pt --vocab-path models/tower_a_vocab.json
+	python src/embed/batch_embed.py --tower b --model-path models/tower_b_model.pt
+	python src/embed/build_faiss.py --tower a --embeddings-local /tmp/embeddings_a.jsonl
+	python src/embed/build_faiss.py --tower b --embeddings-local /tmp/embeddings_b.jsonl
 
 eval:
-	python src/eval/run_eval.py --resume-file /path/to/resume.txt
+	python src/eval/run_eval.py --resume-file data/resume.txt --model-a-path models/tower_a_model.pt --vocab-a-path models/tower_a_vocab.json --model-b-path models/tower_b_model.pt
 
 clean:
 	rm -rf data/ models/ indices/ *.pt *.faiss *.jsonl
