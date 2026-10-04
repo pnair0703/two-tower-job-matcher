@@ -49,9 +49,11 @@ def contrastive_loss(job_embeddings, resume_embeddings, scores, temperature=0.07
         # Log-softmax loss
         # We want pos_logit to be large, neg_logits to be small
         logits_combined = torch.cat([pos_logit.unsqueeze(0), neg_logits])
-        labels_combined = torch.zeros(len(logits_combined), device=job_embeddings.device, dtype=torch.long)
+        # Target is the class index of the positive (index 0), batch size 1 — not
+        # one label per class, which cross_entropy would read as float soft-labels.
+        target = torch.zeros(1, device=job_embeddings.device, dtype=torch.long)
 
-        loss += F.cross_entropy(logits_combined.unsqueeze(0), labels_combined.unsqueeze(0))
+        loss += F.cross_entropy(logits_combined.unsqueeze(0), target)
 
     loss = loss / batch_size
     return loss

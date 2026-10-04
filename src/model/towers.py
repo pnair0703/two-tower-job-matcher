@@ -70,9 +70,15 @@ class TowerB(nn.Module):
             texts: List[str] of job postings or resumes
 
         Returns:
-            embeddings: (batch_size, embedding_dim) normalized float32
+            embeddings: (batch_size, embedding_dim) normalized float32, differentiable
         """
-        embeddings = self.model.encode(texts, convert_to_tensor=True, normalize_embeddings=True)
+        # model.encode() always runs under torch.no_grad(), which blocks fine-tuning —
+        # tokenize + forward manually so gradients flow back into the encoder.
+        device = next(self.model.parameters()).device
+        features = self.model.tokenize(texts)
+        features = {k: v.to(device) for k, v in features.items()}
+        embeddings = self.model(features)["sentence_embedding"]
+        embeddings = F.normalize(embeddings, p=2, dim=-1)
         return embeddings
 
 
