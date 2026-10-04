@@ -4,15 +4,17 @@ import pickle
 import numpy as np
 import faiss
 from pathlib import Path
-from src.data.s3_utils import read_jsonl_from_s3, download_from_s3, upload_to_s3, write_jsonl
+from src.data.s3_utils import download_from_s3, upload_to_s3
 from src.utils.config import load_config
 from src.utils.logging import setup_logging
 
 logger = setup_logging("build_faiss")
 
-def build_faiss_index(embeddings_jsonl_path, posting_ids):
+def build_faiss_index(embeddings_jsonl_path, tower_type="a"):
     """Build FAISS IndexFlatIP from embeddings."""
     logger.info(f"Building FAISS index from {embeddings_jsonl_path}")
+
+    embedding_key = f"embedding_{tower_type}"
 
     # Load embeddings
     embeddings_list = []
@@ -22,7 +24,7 @@ def build_faiss_index(embeddings_jsonl_path, posting_ids):
         for idx, line in enumerate(f):
             record = json.loads(line)
             posting_id = record["posting_id"]
-            embedding = np.array(record["embedding"], dtype=np.float32)
+            embedding = np.array(record[embedding_key], dtype=np.float32)
             embeddings_list.append(embedding)
             posting_id_to_idx[posting_id] = idx
 
@@ -62,12 +64,8 @@ def main():
     else:
         embeddings_path = Path(args.embeddings_local)
 
-    # Read postings to get IDs
-    postings = read_jsonl_from_s3("postings/postings.jsonl", bucket)
-    posting_ids = [p["id"] for p in postings]
-
-    # Build index
-    index, posting_id_to_idx = build_faiss_index(embeddings_path, posting_ids)
+    # Build index (posting IDs come from the embeddings file itself)
+    index, posting_id_to_idx = build_faiss_index(embeddings_path, args.tower)
 
     # Save index
     index_path = Path(f"/tmp/tower_{args.tower}.faiss")

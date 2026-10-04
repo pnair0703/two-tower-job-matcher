@@ -4,6 +4,7 @@ import argparse
 import json
 import numpy as np
 import time
+import torch
 from pathlib import Path
 from src.embed.index_utils import FAISSIndex
 from src.eval.baseline import BM25Baseline
@@ -12,15 +13,33 @@ from src.data.s3_utils import read_jsonl_from_s3, download_from_s3
 from src.utils.config import load_config, get_s3_paths
 from src.utils.logging import setup_logging
 from src.eval.eval_utils import format_results_table, save_results
+from src.model.towers import TowerA, TowerB, JobResumePair
 
 logger = setup_logging("run_eval")
 
-def evaluate_system(index_or_baseline, test_queries, test_labels, k_values=[5, 10, 20]):
+def embed_resume_tower_a(resume_text, model, tokenizer):
+    """Embed resume text with a trained TowerA model."""
+    model.eval()
+    with torch.no_grad():
+        tokens = tokenizer(resume_text).unsqueeze(0)
+        embedding = model(tokens)
+    return embedding.cpu().numpy()[0]
+
+def embed_resume_tower_b(resume_text, model):
+    """Embed resume text with a trained TowerB model."""
+    model.eval()
+    with torch.no_grad():
+        embedding = model([resume_text])
+    return embedding.cpu().numpy()[0]
+
+def evaluate_system(search_fn, test_queries, test_labels, k_values=[5, 10, 20]):
     """
     Evaluate a retrieval system.
 
     Args:
-        index_or_baseline: FAISSIndex or BM25Baseline
+        search_fn: callable(query, k) -> (posting_ids, scores). `query` is the raw
+            resume text for BM25, or a precomputed embedding vector for FAISS —
+            callers close over whatever the system needs.
         test_queries: List[Dict] with resume_text, posting_ids
         test_labels: Dict[posting_id] -> score
         k_values: List[int] of k values for metrics
@@ -39,10 +58,7 @@ def evaluate_system(index_or_baseline, test_queries, test_labels, k_values=[5, 1
 
         # Search
         start = time.time()
-        if isinstance(index_or_baseline, FAISSIndex):
-            posting_ids, scores = index_or_baseline.search(resume_text, k=20)
-        else:  # BM25
-            posting_ids, scores = index_or_baseline.search(resume_text, k=20)
+        posting_ids, scores = search_fn(resume_text, k=20)
         latency_ms = (time.time() - start) * 1000
         latencies.append(latency_ms)
 
@@ -53,7 +69,7 @@ def evaluate_system(index_or_baseline, test_queries, test_labels, k_values=[5, 1
         p_5 = precision_at_k(retrieved_labels, k=5, threshold=2)  # Score >= 2 is positive
         p_10 = precision_at_k(retrieved_labels, k=10, threshold=2)
         r_20 = recall_at_k(retrieved_labels, k=20, threshold=2)
-        ndcg_10 = ndcg_at_k(retrieved_labels, k=10, relevances=retrieved_labels)  # Use graded labels
+        ndcg_10 = ndcg_at_k(retrieved_labels, k=10)  # ideal ranking = retrieved_labels sorted descending
 
         all_precisions_5.append(p_5)
         all_precisions_10.append(p_10)
@@ -76,6 +92,9 @@ def main():
     parser.add_argument("--indices-dir", default="./indices")
     parser.add_argument("--resume-file", required=True, help="Path to resume text file")
     parser.add_argument("--test-labels-s3", default="labels/labels.jsonl")
+    parser.add_argument("--model-a-path", default="./models/tower_a_model.pt", help="Path to trained TowerA state dict")
+    parser.add_argument("--vocab-a-path", default="./models/tower_a_vocab.json", help="Path to TowerA vocab.json")
+    parser.add_argument("--model-b-path", help="Path to fine-tuned TowerB state dict (optional)")
     parser.add_argument("--output", default="results.json")
     args = parser.parse_args()
 
@@ -111,15 +130,33 @@ def main():
     # Create test queries (just the resume, repeated)
     test_queries = [{"resume_text": resume_text} for _ in test_labels_list]
 
+    # Load trained towers and embed the resume once per tower (query is constant
+    # across test_queries, so there's no need to re-embed it per iteration)
+    vocab = JobResumePair.load_vocab(args.vocab_a_path)
+    tower_a = TowerA(vocab_size=vocab.vocab_size)
+    tower_a.load_state_dict(torch.load(args.model_a_path, map_location="cpu", weights_only=True))
+    resume_embedding_a = embed_resume_tower_a(resume_text, tower_a, vocab.tokenize)
+
+    tower_b = TowerB()
+    if args.model_b_path:
+        tower_b.model.load_state_dict(torch.load(args.model_b_path, map_location="cpu", weights_only=True))
+    resume_embedding_b = embed_resume_tower_b(resume_text, tower_b)
+
     # Evaluate all systems
     logger.info("Evaluating BM25 baseline")
-    bm25_results = evaluate_system(bm25_baseline, test_queries, test_labels_dict)
+    bm25_results = evaluate_system(
+        lambda text, k: bm25_baseline.search(text, k=k), test_queries, test_labels_dict
+    )
 
     logger.info("Evaluating Tower A")
-    tower_a_results = evaluate_system(index_a, test_queries, test_labels_dict)
+    tower_a_results = evaluate_system(
+        lambda text, k: index_a.search(resume_embedding_a, k=k), test_queries, test_labels_dict
+    )
 
     logger.info("Evaluating Tower B")
-    tower_b_results = evaluate_system(index_b, test_queries, test_labels_dict)
+    tower_b_results = evaluate_system(
+        lambda text, k: index_b.search(resume_embedding_b, k=k), test_queries, test_labels_dict
+    )
 
     # Aggregate results
     results = {
